@@ -278,6 +278,7 @@ table { width: 100%; border-collapse: collapse; }
 .delta.flat { color: #9a9384; }
 
 /* SYNC STATUS */
+.hdr-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .sync-status {
   font-family: 'IBM Plex Mono', monospace; font-size: 11px;
   padding: 6px 12px; border-radius: 7px; letter-spacing: 0.02em;
@@ -337,6 +338,109 @@ table { width: 100%; border-collapse: collapse; }
 }
 .er-detail2 .indent3 { padding-left: 0 !important; }
 
+/* PANTALLA DE LOGIN */
+.login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.login-card {
+  background: #fffdf8; border: 1px solid #e6e0d1; border-radius: 16px;
+  padding: 32px 28px; max-width: 360px; width: 100%;
+  box-shadow: 0 8px 24px rgba(42, 38, 32, 0.06);
+}
+.login-logo { display: flex; justify-content: center; margin-bottom: 14px; }
+.login-logo img { width: 56px; height: 56px; object-fit: contain; }
+.login-card h1 {
+  font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600;
+  text-align: center; letter-spacing: -0.01em;
+}
+.login-sub { font-size: 12.5px; color: #9a9384; text-align: center; margin: 4px 0 22px; }
+.login-card form { display: flex; flex-direction: column; gap: 12px; }
+.login-card label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 11.5px; color: #6b6456; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.login-card input {
+  background: #f6f2e8; border: 1.5px solid #e6e0d1; border-radius: 8px;
+  padding: 10px 12px; font-size: 14px; font-family: inherit; color: #2a2620;
+  transition: border-color 0.15s;
+}
+.login-card input:focus { outline: none; border-color: #3b7a57; background: #fff; }
+.login-card button[type="submit"] {
+  background: #2a2620; color: #f4f1ea; border: none; border-radius: 8px;
+  padding: 12px; font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit; margin-top: 6px;
+  transition: background 0.15s;
+}
+.login-card button[type="submit"]:hover { background: #3b3530; }
+.login-card button[type="submit"]:disabled { opacity: 0.6; cursor: wait; }
+.login-error {
+  background: #fbeae6; color: #a8442f; border: 1px solid #e3b6ab;
+  padding: 9px 12px; border-radius: 7px; font-size: 12px;
+  text-align: center;
+}
+
+/* BADGE DE USUARIO */
+.user-badge {
+  display: flex; align-items: center; gap: 9px;
+  background: #fffdf8; border: 1px solid #e6e0d1; border-radius: 9px;
+  padding: 5px 5px 5px 11px;
+}
+.user-badge .user-name { font-size: 13px; font-weight: 600; color: #2a2620; }
+.user-badge .user-rol {
+  font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 3px 7px; border-radius: 5px; font-weight: 700;
+}
+.user-rol-admin { background: #d5e4cf; color: #436437; }
+.user-rol-restricted { background: #f3e4c4; color: #94701b; }
+.user-logout {
+  background: transparent; border: 1px solid #e6e0d1; border-radius: 6px;
+  color: #6b6456; font-size: 11px; cursor: pointer; padding: 5px 10px;
+  font-family: inherit; font-weight: 600;
+}
+.user-logout:hover { background: #ece7da; color: #2a2620; }
+
+/* PANEL ADMIN DE USUARIOS */
+.admin-form { background: #f6f2e8; padding: 16px; border-radius: 11px;
+  margin-bottom: 8px; }
+.user-form { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px;
+  align-items: end; }
+.user-form label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 10.5px; text-transform: uppercase; color: #9a9384;
+  font-weight: 600; letter-spacing: 0.04em;
+}
+.user-form input, .user-form select {
+  background: #fff; border: 1.5px solid #d8d2c2; border-radius: 7px;
+  padding: 8px 10px; font-size: 13px; font-family: inherit; color: #2a2620;
+}
+.user-form input:focus, .user-form select:focus { outline: none; border-color: #3b7a57; }
+.user-form button {
+  background: #3b7a57; color: #fff; border: none; border-radius: 7px;
+  padding: 9px 18px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: inherit;
+}
+.user-form button:hover { background: #2f6346; }
+@media (max-width: 700px) { .user-form { grid-template-columns: 1fr; } }
+.admin-msg {
+  margin-top: 12px; padding: 10px 12px; border-radius: 7px; font-size: 12.5px;
+  background: #ece7da; color: #6b6456;
+}
+.admin-msg.loading { background: #f3e4c4; color: #94701b; }
+.admin-msg.ok { background: #d5e4cf; color: #436437; }
+.admin-msg.error { background: #fbeae6; color: #a8442f; border: 1px solid #e3b6ab; }
+.btn-link {
+  background: none; border: none; color: #3b7a57; font-size: 12px;
+  cursor: pointer; font-family: inherit; padding: 2px 4px;
+  text-decoration: underline; text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+.btn-link:hover { color: #2a2620; }
+.btn-link.btn-danger { color: #a8442f; }
+.tag-rol-admin { background: #d5e4cf; color: #436437; }
+.tag-rol-rest { background: #f3e4c4; color: #94701b; }
+
 @media (max-width: 600px) {
   .num { font-size: 11.5px; }
   .data-table td, .er-table td { padding: 7px 6px; }
@@ -346,62 +450,72 @@ table { width: 100%; border-collapse: collapse; }
 </head>
 <body>
 <div class="app">
-  <header class="hdr">
-    <div class="hdr-mark">
-      <div class="hdr-logo"><img id="ecoLogo" alt="EcoEnergy"></div>
-      <div>
-        <h1>Tablero de Control</h1>
-        <p>EcoEnergy &middot; Estado de Resultados y An&aacute;lisis Mensual</p>
+
+  <!-- ===== PANTALLA DE LOGIN (se muestra cuando no hay sesión) ===== -->
+  <div class="login-screen hidden" id="loginScreen"></div>
+
+  <!-- ===== TABLERO (se muestra cuando hay sesión) ===== -->
+  <div id="mainContent" class="hidden">
+    <header class="hdr">
+      <div class="hdr-mark">
+        <div class="hdr-logo"><img id="ecoLogo" alt="EcoEnergy"></div>
+        <div>
+          <h1>Tablero de Control</h1>
+          <p>EcoEnergy &middot; Estado de Resultados y An&aacute;lisis Mensual</p>
+        </div>
       </div>
+      <div class="hdr-right">
+        <div class="user-badge" id="userBadge"></div>
+        <div class="sync-status" id="syncStatus">Conectando…</div>
+      </div>
+    </header>
+
+    <section class="import-bar" id="importBar">
+      <label class="upload-zone" id="zoneV">
+        <input type="file" accept=".xlsx,.xls,.XLSX,.XLS" hidden id="fileV">
+        <div class="upload-icon" id="icoV">&#8593;</div>
+        <div class="upload-text">
+          <span class="upload-title">Importar Planilla de Ventas</span>
+          <span class="upload-hint" id="hintV">El per&iacute;odo se detecta por la fecha del archivo</span>
+        </div>
+      </label>
+      <label class="upload-zone" id="zoneC">
+        <input type="file" accept=".xlsx,.xls,.XLSX,.XLS" hidden id="fileC">
+        <div class="upload-icon" id="icoC">&#8593;</div>
+        <div class="upload-text">
+          <span class="upload-title">Importar Planilla de Compras</span>
+          <span class="upload-hint" id="hintC">Pod&eacute;s cargar varios meses, uno por uno</span>
+        </div>
+      </label>
+    </section>
+
+    <section class="period-bar hidden" id="periodBar">
+      <span class="period-bar-title">Per&iacute;odos cargados</span>
+      <div class="period-list" id="periodList"></div>
+    </section>
+
+    <div class="alert hidden" id="alert">
+      <span id="alertMsg"></span>
+      <button onclick="document.getElementById('alert').classList.add('hidden')">&times;</button>
     </div>
-    <div class="sync-status" id="syncStatus">Conectando…</div>
-  </header>
 
-  <section class="import-bar">
-    <label class="upload-zone" id="zoneV">
-      <input type="file" accept=".xlsx,.xls,.XLSX,.XLS" hidden id="fileV">
-      <div class="upload-icon" id="icoV">&#8593;</div>
-      <div class="upload-text">
-        <span class="upload-title">Importar Planilla de Ventas</span>
-        <span class="upload-hint" id="hintV">El per&iacute;odo se detecta por la fecha del archivo</span>
-      </div>
-    </label>
-    <label class="upload-zone" id="zoneC">
-      <input type="file" accept=".xlsx,.xls,.XLSX,.XLS" hidden id="fileC">
-      <div class="upload-icon" id="icoC">&#8593;</div>
-      <div class="upload-text">
-        <span class="upload-title">Importar Planilla de Compras</span>
-        <span class="upload-hint" id="hintC">Pod&eacute;s cargar varios meses, uno por uno</span>
-      </div>
-    </label>
-  </section>
+    <div class="empty" id="empty">
+      <div class="ico">&#128202;</div>
+      <p>Import&aacute; las planillas de ventas y compras de un mes para empezar.
+      Pod&eacute;s ir agregando otros meses y compararlos entre s&iacute;.</p>
+    </div>
 
-  <section class="period-bar hidden" id="periodBar">
-    <span class="period-bar-title">Per&iacute;odos cargados</span>
-    <div class="period-list" id="periodList"></div>
-  </section>
+    <div id="dashboard" class="hidden">
+      <section class="kpis" id="kpis"></section>
+      <nav class="tabs" id="tabs"></nav>
+      <div id="content"></div>
+    </div>
 
-  <div class="alert hidden" id="alert">
-    <span id="alertMsg"></span>
-    <button onclick="document.getElementById('alert').classList.add('hidden')">&times;</button>
+    <footer class="ftr">
+      Tablero generado a partir de las planillas del software de gesti&oacute;n &middot;
+      Todos los importes en pesos argentinos.
+    </footer>
   </div>
-
-  <div class="empty" id="empty">
-    <div class="ico">&#128202;</div>
-    <p>Import&aacute; las planillas de ventas y compras de un mes para empezar.
-    Pod&eacute;s ir agregando otros meses y compararlos entre s&iacute;.</p>
-  </div>
-
-  <div id="dashboard" class="hidden">
-    <section class="kpis" id="kpis"></section>
-    <nav class="tabs" id="tabs"></nav>
-    <div id="content"></div>
-  </div>
-
-  <footer class="ftr">
-    Tablero generado a partir de las planillas del software de gesti&oacute;n &middot;
-    Todos los importes en pesos argentinos.
-  </footer>
 </div>
 
 <!-- ===== LOGO ECOENERGY ===== -->
@@ -517,8 +631,30 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     activo: null,
     tab: "estado",
     openV: {}, openC: {},
-    openER: {}    // qué filas del Estado de Resultados están abiertas
+    openER: {},
+    // Sesión
+    session: null,   // {token, usuario, rol}
+    booting: true    // mientras decide si mostrar login o tablero
   };
+
+  /* ---- Helpers de sesión ---- */
+  var SESSION_KEY = "ecoenergy_session";
+  function saveSession(s) {
+    state.session = s;
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); } catch (e) {}
+  }
+  function loadSavedSession() {
+    try {
+      var s = sessionStorage.getItem(SESSION_KEY);
+      if (s) state.session = JSON.parse(s);
+    } catch (e) {}
+  }
+  function clearSession() {
+    state.session = null;
+    try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+  }
+  function isAdmin() { return state.session && state.session.rol === "admin"; }
+  function isRestricted() { return state.session && state.session.rol === "restricted"; }
 
   /* ============================================================
      PARSEO
@@ -701,9 +837,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function gasConfigurado() { return !!GAS_URL; }
 
   function gasCall(payload) {
+    payload = payload || {};
+    if (state.session && state.session.token && !payload.token) {
+      payload.token = state.session.token;
+    }
     return fetch(GAS_URL, {
       method: "POST",
-      // text/plain evita el preflight OPTIONS; Apps Script igual lo parsea como JSON.
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
       redirect: "follow"
@@ -713,7 +852,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       });
       return r.json();
     }).then(function (res) {
-      if (res && res.error) throw new Error(res.error);
+      if (res && res.error) {
+        // Si la sesión se invalidó, forzar logout local y enviar al login
+        if (res.error.indexOf("Sesión") >= 0) {
+          clearSession();
+          hideAlert();
+          render();
+          // Marcar el error para que los llamadores no muestren alerta
+          var sessionErr = new Error(res.error);
+          sessionErr.isSessionError = true;
+          throw sessionErr;
+        }
+        throw new Error(res.error);
+      }
       return res;
     });
   }
@@ -822,6 +973,35 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     });
   }
 
+  /* ---- Autenticación y usuarios ---- */
+  function gasLogin(usuario, password) {
+    return gasCall({ action: "login", usuario: usuario, password: password })
+      .then(function (res) {
+        saveSession({ token: res.token, usuario: res.usuario, rol: res.rol });
+        return res;
+      });
+  }
+  function gasLogout() {
+    var p = gasCall({ action: "logout" }).catch(function () {});
+    return p.then(function () {
+      clearSession();
+      state.periodos = {};
+      state.activo = null;
+      state.booting = true;
+      render();
+    });
+  }
+  function gasListUsers() { return gasCall({ action: "users_list" }); }
+  function gasCreateUser(usuario, password, rol) {
+    return gasCall({ action: "users_create", usuario: usuario, password: password, rol: rol });
+  }
+  function gasDeleteUser(usuario) {
+    return gasCall({ action: "users_delete", usuario: usuario });
+  }
+  function gasChangePassword(usuario, password) {
+    return gasCall({ action: "users_password", usuario: usuario, password: password });
+  }
+
   /* ============================================================
      LECTURA DE ARCHIVOS
      ============================================================ */
@@ -864,6 +1044,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
               new Date().toLocaleTimeString("es-AR",
                 { hour: "2-digit", minute: "2-digit" }), "ok");
           }).catch(function (err) {
+            // Si la sesión expiró, gasCall ya nos envió al login.
+            // No mostramos alerta adicional.
+            if (err.isSessionError) {
+              setSyncStatus("Sesión cerrada — volvé a ingresar", "error");
+              return;
+            }
             setSyncStatus("Error al guardar", "error");
             showAlert("El archivo se importó localmente, pero no se pudo guardar en la nube: "
               + err.message);
@@ -889,6 +1075,25 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   function render() {
+    // Si no hay sesión activa, mostrar pantalla de login
+    if (!state.session) {
+      renderLoginScreen();
+      return;
+    }
+    // Hay sesión: ocultar login, mostrar header
+    document.getElementById("loginScreen").classList.add("hidden");
+    document.getElementById("mainContent").classList.remove("hidden");
+    renderUserBadge();
+
+    // En modo restricted: ocultar import bar, KPIs y forzar tab válida
+    var restricted = isRestricted();
+    document.getElementById("importBar").classList.toggle("hidden", restricted);
+    document.getElementById("kpis").classList.toggle("hidden", restricted);
+    if (restricted && (state.tab === "estado" || state.tab === "graficos" ||
+        state.tab === "comparativo" || state.tab === "admin")) {
+      state.tab = "ventas";
+    }
+
     renderPeriodSelector();
     var hayActivo = state.activo && state.periodos[state.activo] &&
       state.periodos[state.activo].ventas && state.periodos[state.activo].compras;
@@ -898,7 +1103,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     var p = state.periodos[state.activo];
     var comp = computePeriodo(p);
-    renderKpis(comp.er, p);
+    if (!restricted) renderKpis(comp.er, p);
     renderTabs(periodosCompletos().length);
 
     if (state.tab === "estado") renderEstado(comp.er);
@@ -906,6 +1111,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     else if (state.tab === "compras") renderCompras(comp.cr);
     else if (state.tab === "graficos") renderGraficos(comp);
     else if (state.tab === "comparativo") renderComparativo();
+    else if (state.tab === "admin") renderAdmin();
   }
 
   function renderPeriodSelector() {
@@ -931,7 +1137,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         '<span class="pc-label">' + esc(periodoLabel(k)) + '</span>' +
         (completo ? '' : '<span class="pc-falta">falta ' + falta.join(" y ") + '</span>') +
         '</button>' +
-        '<button class="pc-del" data-pdel="' + esc(k) + '" title="Borrar este período">&times;</button>' +
+        (isAdmin()
+          ? '<button class="pc-del" data-pdel="' + esc(k) + '" title="Borrar este período">&times;</button>'
+          : '') +
         '</div>';
     }).join("");
     Array.prototype.forEach.call(box.querySelectorAll("[data-pkey]"), function (b) {
@@ -990,14 +1198,25 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   function renderTabs(cantPeriodos) {
-    var tabs = [
-      { id: "estado", label: "Estado de Resultados" },
-      { id: "ventas", label: "Ventas por Rubro" },
-      { id: "compras", label: "Compras y Gastos" },
-      { id: "graficos", label: "Gráficos" }
-    ];
-    if (cantPeriodos >= 2) tabs.push({ id: "comparativo", label: "Comparativo" });
-    if (state.tab === "comparativo" && cantPeriodos < 2) state.tab = "estado";
+    var tabs;
+    if (isRestricted()) {
+      // Modo restringido: solo las dos solapas que vos definiste
+      tabs = [
+        { id: "ventas", label: "Ventas por Rubro" },
+        { id: "compras", label: "Compras y Gastos" }
+      ];
+    } else {
+      // Admin: todo
+      tabs = [
+        { id: "estado", label: "Estado de Resultados" },
+        { id: "ventas", label: "Ventas por Rubro" },
+        { id: "compras", label: "Compras y Gastos" },
+        { id: "graficos", label: "Gráficos" }
+      ];
+      if (cantPeriodos >= 2) tabs.push({ id: "comparativo", label: "Comparativo" });
+      if (state.tab === "comparativo" && cantPeriodos < 2) state.tab = "estado";
+      tabs.push({ id: "admin", label: "Usuarios" });
+    }
     var nav = document.getElementById("tabs");
     nav.innerHTML = tabs.map(function (t) {
       return '<button data-tab="' + t.id + '" class="' +
@@ -1636,6 +1855,175 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   /* ============================================================
+     LOGIN, USER BADGE Y PANEL DE ADMIN
+     ============================================================ */
+  function renderLoginScreen() {
+    document.getElementById("mainContent").classList.add("hidden");
+    var login = document.getElementById("loginScreen");
+    login.classList.remove("hidden");
+    login.innerHTML =
+      '<div class="login-card">' +
+      '<div class="login-logo"><img src="' + document.getElementById("ecoLogo").src + '" alt=""></div>' +
+      '<h1>Tablero EcoEnergy</h1>' +
+      '<p class="login-sub">Ingresá con tu usuario y contraseña</p>' +
+      '<form id="loginForm">' +
+      '<label>Usuario<input type="text" id="loginUser" autocomplete="username" autofocus required></label>' +
+      '<label>Contraseña<input type="password" id="loginPass" autocomplete="current-password" required></label>' +
+      '<button type="submit" id="loginBtn">Ingresar</button>' +
+      '<div class="login-error hidden" id="loginError"></div>' +
+      '</form></div>';
+    document.getElementById("loginForm").onsubmit = function (e) {
+      e.preventDefault();
+      var u = document.getElementById("loginUser").value.trim();
+      var p = document.getElementById("loginPass").value;
+      var btn = document.getElementById("loginBtn");
+      var err = document.getElementById("loginError");
+      err.classList.add("hidden");
+      btn.disabled = true; btn.textContent = "Ingresando…";
+      gasLogin(u, p).then(function () {
+        state.booting = true;
+        return gasCargarTodo();
+      }).catch(function (e) {
+        err.textContent = e.message;
+        err.classList.remove("hidden");
+        btn.disabled = false; btn.textContent = "Ingresar";
+      });
+    };
+  }
+
+  function renderUserBadge() {
+    var badge = document.getElementById("userBadge");
+    if (!badge || !state.session) return;
+    var rolLabel = state.session.rol === "admin" ? "Admin" : "Restringido";
+    badge.innerHTML =
+      '<span class="user-name">' + esc(state.session.usuario) + '</span>' +
+      '<span class="user-rol user-rol-' + state.session.rol + '">' + rolLabel + '</span>' +
+      '<button class="user-logout" id="btnLogout" title="Cerrar sesión">Salir</button>';
+    document.getElementById("btnLogout").onclick = function () {
+      if (confirm("¿Cerrar sesión?")) gasLogout();
+    };
+  }
+
+  function renderAdmin() {
+    var html = '<section class="panel"><div class="panel-head">' +
+      '<h2>Usuarios del Tablero</h2>' +
+      '<span class="panel-note">Crear y administrar quién puede acceder al sistema.</span>' +
+      '</div>';
+
+    // Form de alta
+    html += '<div class="admin-form">' +
+      '<h3 class="sub-h">Crear nuevo usuario</h3>' +
+      '<form id="formNewUser" class="user-form">' +
+      '<label>Usuario<input type="text" id="nuUser" required minlength="3"></label>' +
+      '<label>Contraseña<input type="password" id="nuPass" required minlength="4"></label>' +
+      '<label>Rol<select id="nuRol">' +
+      '<option value="admin">Admin (ve todo, importa y borra)</option>' +
+      '<option value="restricted" selected>Restringido (solo lectura)</option>' +
+      '</select></label>' +
+      '<button type="submit">Crear</button>' +
+      '</form>' +
+      '<div id="adminMsg" class="admin-msg hidden"></div>' +
+      '</div>';
+
+    // Tabla de usuarios
+    html += '<h3 class="sub-h">Usuarios actuales</h3>' +
+      '<div class="table-scroll"><table class="data-table"><thead><tr>' +
+      '<th>Usuario</th><th>Rol</th><th>Creado</th><th>Último ingreso</th>' +
+      '<th class="num">Acciones</th></tr></thead>' +
+      '<tbody id="userTableBody"><tr><td colspan="5" class="muted">Cargando…</td></tr></tbody>' +
+      '</table></div></section>';
+
+    document.getElementById("content").innerHTML = html;
+
+    // Cargar lista
+    function recargar() {
+      gasListUsers().then(function (res) {
+        var tbody = document.getElementById("userTableBody");
+        if (!res.usuarios || !res.usuarios.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="muted">No hay usuarios.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = res.usuarios.map(function (u) {
+          var rolLabel = u.rol === "admin"
+            ? '<span class="tag tag-rol-admin">admin</span>'
+            : '<span class="tag tag-rol-rest">restringido</span>';
+          var esEsteUsuario = u.usuario.toLowerCase() ===
+            state.session.usuario.toLowerCase();
+          var fmtDate = function (d) {
+            if (!d) return "—";
+            try { return new Date(d).toLocaleString("es-AR",
+              { day: "2-digit", month: "2-digit", year: "2-digit",
+                hour: "2-digit", minute: "2-digit" }); }
+            catch (e) { return String(d).slice(0, 16); }
+          };
+          var acciones =
+            '<button class="btn-link" data-pwd="' + esc(u.usuario) + '">cambiar clave</button>';
+          if (!esEsteUsuario) {
+            acciones += ' · <button class="btn-link btn-danger" data-del="' +
+              esc(u.usuario) + '">borrar</button>';
+          }
+          return '<tr><td><strong>' + esc(u.usuario) + '</strong>' +
+            (esEsteUsuario ? ' <span class="muted">(vos)</span>' : '') + '</td>' +
+            '<td>' + rolLabel + '</td>' +
+            '<td class="muted">' + fmtDate(u.creado) + '</td>' +
+            '<td class="muted">' + fmtDate(u.ultimo_login) + '</td>' +
+            '<td class="num">' + acciones + '</td></tr>';
+        }).join("");
+        Array.prototype.forEach.call(
+          tbody.querySelectorAll("[data-del]"), function (b) {
+            b.onclick = function () {
+              var u = b.getAttribute("data-del");
+              if (!confirm("¿Borrar al usuario '" + u + "' definitivamente?")) return;
+              adminMsg("Borrando…", "loading");
+              gasDeleteUser(u).then(function () {
+                adminMsg("Usuario '" + u + "' borrado.", "ok");
+                recargar();
+              }).catch(function (e) { adminMsg(e.message, "error"); });
+            };
+          });
+        Array.prototype.forEach.call(
+          tbody.querySelectorAll("[data-pwd]"), function (b) {
+            b.onclick = function () {
+              var u = b.getAttribute("data-pwd");
+              var p = prompt("Nueva contraseña para '" + u + "' (mínimo 4 caracteres):");
+              if (!p) return;
+              if (p.length < 4) { alert("Mínimo 4 caracteres."); return; }
+              adminMsg("Cambiando contraseña…", "loading");
+              gasChangePassword(u, p).then(function () {
+                adminMsg("Contraseña de '" + u + "' actualizada. Si era tu propia sesión, " +
+                  "podés tener que volver a ingresar.", "ok");
+              }).catch(function (e) { adminMsg(e.message, "error"); });
+            };
+          });
+      }).catch(function (e) {
+        document.getElementById("userTableBody").innerHTML =
+          '<tr><td colspan="5" class="muted">Error: ' + esc(e.message) + '</td></tr>';
+      });
+    }
+
+    function adminMsg(txt, kind) {
+      var el = document.getElementById("adminMsg");
+      el.textContent = txt;
+      el.className = "admin-msg " + (kind || "");
+    }
+
+    document.getElementById("formNewUser").onsubmit = function (e) {
+      e.preventDefault();
+      var u = document.getElementById("nuUser").value.trim();
+      var p = document.getElementById("nuPass").value;
+      var r = document.getElementById("nuRol").value;
+      adminMsg("Creando usuario…", "loading");
+      gasCreateUser(u, p, r).then(function () {
+        adminMsg("Usuario '" + u + "' creado con rol " + r + ".", "ok");
+        document.getElementById("formNewUser").reset();
+        recargar();
+      }).catch(function (e) { adminMsg(e.message, "error"); });
+    };
+
+    recargar();
+  }
+
+  /* ============================================================
      INICIALIZACIÓN
      ============================================================ */
   document.getElementById("fileV").addEventListener("change", function (e) {
@@ -1645,11 +2033,18 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (e.target.files[0]) { readFile(e.target.files[0], "compras"); e.target.value = ""; }
   });
 
-  // Al abrir el tablero, cargar todo desde Google Sheets
-  if (gasConfigurado()) {
-    gasCargarTodo();
-  } else {
+  // Al abrir el tablero
+  if (!gasConfigurado()) {
     setSyncStatus("Sin conexión a la nube — configurá GAS_WEBAPP_URL", "error");
+    document.getElementById("mainContent").classList.remove("hidden");
+  } else {
+    loadSavedSession();
+    if (state.session) {
+      // Intentar usar la sesión guardada (puede haber expirado)
+      gasCargarTodo();
+    } else {
+      render();
+    }
   }
 })();
 </script>
