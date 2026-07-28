@@ -6,14 +6,14 @@
 <title>Tablero de Control — EcoEnergy</title>
 
 <!-- ===========================================================
-     CONFIGURACIÓN DE GOOGLE SHEETS
-     Pegá acá la URL del "Web App" del Apps Script
-     (Deploy → Manage deployments → URL).
-     Esta URL es pública por diseño: cualquiera con el link
-     puede leer/escribir en la hoja, como elegimos en la guía.
+     CONFIGURACIÓN DE SUPABASE
+     La URL y la clave publishable/anon del proyecto.
+     Estos valores son PÚBLICOS por diseño: la seguridad
+     efectiva está en el flujo de login + tokens que hace el HTML.
      =========================================================== -->
 <script>
-window.GAS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyhw-GCKm4a1x7gtJQxwrcmf4Q_VcTwTDTet0ID84YIqwN5YmlBhLFiMMWwxvji1H4z/exec";   // ej: "https://script.google.com/macros/s/AKfycb.../exec"
+window.SUPABASE_URL = "https://gaskalotxvlexrembjqm.supabase.co";
+window.SUPABASE_ANON_KEY = "sb_publishable__TQVVXBRkfcVguWZmC6VNw_GFpVvvVG";
 </script>
 
 <style>
@@ -824,49 +824,65 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
 
   /* ============================================================
-     GOOGLE APPS SCRIPT — Persistencia en Google Sheets
-     El HTML conversa con una sola URL: el "deployment" del
-     Apps Script publicado como Web App. El script lee/escribe
-     en una hoja de Google Sheets con 3 pestañas.
-     Se usa Content-Type: text/plain para evitar el preflight
-     CORS, lo que mantiene este HTML como archivo único sin
-     necesidad de servidor propio.
+     SUPABASE — Persistencia en Postgres
+     El HTML habla directamente con el REST endpoint de Supabase.
+     La clave publishable (o anon en formato viejo) es pública por
+     diseño: la seguridad efectiva está en el flujo de tokens
+     casero (usuario + password + rol) y en las políticas RLS.
      ============================================================ */
-  var GAS_URL = window.GAS_WEBAPP_URL || "";
+  var SB = {
+    url: (window.SUPABASE_URL || "").replace(/\/+$/, "").replace(/\/rest\/v1$/, ""),
+    key: window.SUPABASE_ANON_KEY || ""
+  };
 
-  function gasConfigurado() { return !!GAS_URL; }
+  function gasConfigurado() { return !!(SB.url && SB.key); }
 
-  function gasCall(payload) {
-    payload = payload || {};
-    if (state.session && state.session.token && !payload.token) {
-      payload.token = state.session.token;
-    }
-    return fetch(GAS_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload),
-      redirect: "follow"
-    }).then(function (r) {
+  function sbHeaders(extra) {
+    var h = {
+      "apikey": SB.key,
+      "Authorization": "Bearer " + SB.key,
+      "Content-Type": "application/json"
+    };
+    if (extra) for (var k in extra) h[k] = extra[k];
+    return h;
+  }
+
+  function sbFetch(path, opts) {
+    opts = opts || {};
+    if (!opts.headers) opts.headers = sbHeaders();
+    return fetch(SB.url + "/rest/v1" + path, opts).then(function (r) {
       if (!r.ok) return r.text().then(function (t) {
-        throw new Error("HTTP " + r.status + ": " + t.slice(0, 200));
+        var msg = t;
+        try { var j = JSON.parse(t); if (j.message) msg = j.message; } catch (e) {}
+        throw new Error("Supabase " + r.status + ": " + msg.slice(0, 200));
       });
+      var ct = r.headers.get("content-type") || "";
+      if (ct.indexOf("application/json") < 0) return null;
       return r.json();
-    }).then(function (res) {
-      if (res && res.error) {
-        // Si la sesión se invalidó, forzar logout local y enviar al login
-        if (res.error.indexOf("Sesión") >= 0) {
-          clearSession();
-          hideAlert();
-          render();
-          // Marcar el error para que los llamadores no muestren alerta
-          var sessionErr = new Error(res.error);
-          sessionErr.isSessionError = true;
-          throw sessionErr;
-        }
-        throw new Error(res.error);
-      }
-      return res;
     });
+  }
+
+  /* ---- Hash SHA-256 en el navegador (equivalente al del backend) ---- */
+  function sha256Hex(s) {
+    return crypto.subtle.digest("SHA-256", new TextEncoder().encode(s))
+      .then(function (buf) {
+        var arr = new Uint8Array(buf);
+        var hex = "";
+        for (var i = 0; i < arr.length; i++) {
+          var h = arr[i].toString(16);
+          hex += h.length === 1 ? "0" + h : h;
+        }
+        return hex;
+      });
+  }
+
+  function randomToken(len) {
+    var chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+    var s = "";
+    var rand = new Uint8Array(len);
+    crypto.getRandomValues(rand);
+    for (var i = 0; i < len; i++) s += chars.charAt(rand[i] % chars.length);
+    return s;
   }
 
   function setSyncStatus(msg, kind) {
@@ -876,59 +892,88 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     el.className = "sync-status " + (kind || "");
   }
 
-  /* Guardar un período completo en la hoja */
+  /* ---- Guardar un período (borrar viejo + insertar nuevo) ---- */
   function gasGuardarPeriodo(p) {
     if (!gasConfigurado()) return Promise.resolve();
-    var ventas = (p.ventas || []).map(function (v) {
-      return {
-        periodo_key: p.key,
-        articulo_id: v.id == null ? "" : String(v.id),
-        descr: v.descr || "",
-        cantidad: v.cantidad,
-        importe: v.importe,
-        costo_unit: v.costoUnit == null ? "" : v.costoUnit,
-        tasa_iva: v.tasa,
-        rubro: v.rubro
-      };
-    });
-    var compras = (p.compras || []).map(function (c) {
-      return {
-        periodo_key: p.key,
-        descr: c.desc || "",
-        comprobante: c.comprobante || "",
-        proveedor: c.proveedor || "",
-        tipo_comp: c.tipoComp || "",
-        es_nc: !!c.esNC,
-        neto: c.neto,
-        iva: c.iva,
-        total: c.total,
-        rubro: c.rubro
-      };
-    });
-    return gasCall({
-      action: "save",
-      periodo: {
-        key: p.key, label: p.label,
-        archivo_ventas: p.ventasFile || "",
-        archivo_compras: p.comprasFile || ""
-      },
-      ventas: ventas,
-      compras: compras
+    var key = p.key;
+    // 1. Upsert del período
+    var periodoRow = {
+      key: key, label: p.label,
+      archivo_ventas: p.ventasFile || null,
+      archivo_compras: p.comprasFile || null,
+      actualizado: new Date().toISOString()
+    };
+    return sbFetch("/periodos?on_conflict=key", {
+      method: "POST",
+      headers: sbHeaders({ "Prefer": "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify(periodoRow)
+    }).then(function () {
+      // 2. Borrar líneas viejas (el ON DELETE CASCADE del schema NO se dispara
+      // porque no borramos el período: solo sus filas hijas)
+      return Promise.all([
+        sbFetch("/ventas?periodo_key=eq." + encodeURIComponent(key),
+          { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) }),
+        sbFetch("/compras?periodo_key=eq." + encodeURIComponent(key),
+          { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) })
+      ]);
+    }).then(function () {
+      // 3. Insertar filas nuevas en lotes
+      var ops = [];
+      var Hmin = sbHeaders({ "Prefer": "return=minimal" });
+      if (p.ventas && p.ventas.length) {
+        var vrows = p.ventas.map(function (v) {
+          return {
+            periodo_key: key,
+            articulo_id: v.id == null ? null : String(v.id),
+            descr: v.descr, cantidad: v.cantidad, importe: v.importe,
+            costo_unit: v.costoUnit, tasa_iva: v.tasa, rubro: v.rubro
+          };
+        });
+        for (var i = 0; i < vrows.length; i += 500) {
+          ops.push(sbFetch("/ventas", {
+            method: "POST", headers: Hmin,
+            body: JSON.stringify(vrows.slice(i, i + 500))
+          }));
+        }
+      }
+      if (p.compras && p.compras.length) {
+        var crows = p.compras.map(function (c) {
+          return {
+            periodo_key: key, descr: c.desc, comprobante: c.comprobante,
+            proveedor: c.proveedor, tipo_comp: c.tipoComp, es_nc: !!c.esNC,
+            neto: c.neto, iva: c.iva, total: c.total, rubro: c.rubro
+          };
+        });
+        for (var j = 0; j < crows.length; j += 500) {
+          ops.push(sbFetch("/compras", {
+            method: "POST", headers: Hmin,
+            body: JSON.stringify(crows.slice(j, j + 500))
+          }));
+        }
+      }
+      return Promise.all(ops);
     });
   }
 
-  /* Borrar un período completo */
+  /* ---- Borrar un período completo ---- */
   function gasBorrarPeriodo(key) {
     if (!gasConfigurado()) return Promise.resolve();
-    return gasCall({ action: "delete", key: key });
+    var Hmin = sbHeaders({ "Prefer": "return=minimal" });
+    // El ON DELETE CASCADE del schema borra ventas y compras
+    return sbFetch("/periodos?key=eq." + encodeURIComponent(key),
+      { method: "DELETE", headers: Hmin });
   }
 
-  /* Cargar todo */
+  /* ---- Cargar todo desde Supabase ---- */
   function gasCargarTodo() {
     if (!gasConfigurado()) return Promise.resolve();
     setSyncStatus("Cargando datos de la nube…", "loading");
-    return gasCall({ action: "load" }).then(function (res) {
-      var periodos = res.periodos || [], ventas = res.ventas || [], compras = res.compras || [];
+    return Promise.all([
+      sbFetch("/periodos?select=*&order=key.asc"),
+      sbFetch("/ventas?select=*&limit=100000"),
+      sbFetch("/compras?select=*&limit=100000")
+    ]).then(function (res) {
+      var periodos = res[0] || [], ventas = res[1] || [], compras = res[2] || [];
       state.periodos = {};
       periodos.forEach(function (pr) {
         state.periodos[pr.key] = {
@@ -942,7 +987,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         var p = state.periodos[v.periodo_key]; if (!p) return;
         var cant = Number(v.cantidad) || 0;
         var tasa = Number(v.tasa_iva) || 0;
-        var costoUnit = (v.costo_unit === "" || v.costo_unit == null) ? null : Number(v.costo_unit);
+        var costoUnit = v.costo_unit == null ? null : Number(v.costo_unit);
         p.ventas.push({
           id: v.articulo_id, descr: v.descr || "", cantidad: cant,
           importe: Number(v.importe) || 0, ventaBruta: Number(v.importe) || 0,
@@ -969,20 +1014,94 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       render();
     }).catch(function (err) {
       setSyncStatus("Error al conectar con la nube", "error");
-      showAlert("No se pudo conectar con Google Sheets: " + err.message);
+      if (err.isSessionError) return;
+      showAlert("No se pudo conectar con Supabase: " + err.message);
     });
   }
 
-  /* ---- Autenticación y usuarios ---- */
+  /* ============================================================
+     AUTENTICACIÓN Y GESTIÓN DE USUARIOS
+     Toda la lógica corre en el navegador contra las tablas.
+     Al no haber backend, cada operación es 1-2 llamadas REST.
+     ============================================================ */
+
   function gasLogin(usuario, password) {
-    return gasCall({ action: "login", usuario: usuario, password: password })
+    if (!gasConfigurado()) return Promise.reject(new Error("Supabase no configurado"));
+    if (!usuario || !password)
+      return Promise.reject(new Error("Usuario y contraseña requeridos"));
+    var user;
+    return sbFetch("/usuarios?usuario=eq." + encodeURIComponent(usuario) + "&select=*&limit=1")
       .then(function (res) {
-        saveSession({ token: res.token, usuario: res.usuario, rol: res.rol });
-        return res;
+        if (!res || !res.length) throw new Error("Usuario o contraseña incorrectos");
+        user = res[0];
+        return sha256Hex(password + ":" + user.salt);
+      }).then(function (hash) {
+        if (hash !== user.password_hash) throw new Error("Usuario o contraseña incorrectos");
+        // Crear sesión
+        var token = randomToken(32);
+        var expira = new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+        var sessionRow = { token: token, usuario: user.usuario, rol: user.rol,
+          creado: new Date().toISOString(), expira: expira };
+        return sbFetch("/sesiones", {
+          method: "POST",
+          headers: sbHeaders({ "Prefer": "return=minimal" }),
+          body: JSON.stringify(sessionRow)
+        }).then(function () {
+          // Actualizar último_login (best-effort)
+          sbFetch("/usuarios?usuario=eq." + encodeURIComponent(user.usuario), {
+            method: "PATCH",
+            headers: sbHeaders({ "Prefer": "return=minimal" }),
+            body: JSON.stringify({ ultimo_login: new Date().toISOString() })
+          }).catch(function () {});
+          // Limpiar sesiones expiradas (best-effort)
+          sbFetch("/sesiones?expira=lt." + encodeURIComponent(new Date().toISOString()),
+            { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) })
+            .catch(function () {});
+          saveSession({ token: token, usuario: user.usuario, rol: user.rol });
+          return { token: token, usuario: user.usuario, rol: user.rol };
+        });
       });
   }
+
+  function requireSession() {
+    if (!state.session || !state.session.token)
+      return Promise.reject(new Error("Sesión no iniciada"));
+    // Validar contra Supabase
+    return sbFetch("/sesiones?token=eq." + encodeURIComponent(state.session.token) +
+        "&select=usuario,rol,expira&limit=1")
+      .then(function (res) {
+        if (!res || !res.length) {
+          clearSession();
+          var e = new Error("Sesión inválida");
+          e.isSessionError = true;
+          throw e;
+        }
+        if (new Date(res[0].expira) < new Date()) {
+          // Borrar sesión expirada
+          sbFetch("/sesiones?token=eq." + encodeURIComponent(state.session.token),
+            { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) })
+            .catch(function () {});
+          clearSession();
+          var e2 = new Error("Sesión expirada");
+          e2.isSessionError = true;
+          throw e2;
+        }
+        // Actualizar rol local en caso de que haya cambiado
+        state.session.rol = res[0].rol;
+        return res[0];
+      });
+  }
+
   function gasLogout() {
-    var p = gasCall({ action: "logout" }).catch(function () {});
+    var token = state.session && state.session.token;
+    var p;
+    if (token) {
+      p = sbFetch("/sesiones?token=eq." + encodeURIComponent(token),
+        { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) })
+        .catch(function () {});
+    } else {
+      p = Promise.resolve();
+    }
     return p.then(function () {
       clearSession();
       state.periodos = {};
@@ -991,15 +1110,85 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       render();
     });
   }
-  function gasListUsers() { return gasCall({ action: "users_list" }); }
+
+  function gasListUsers() {
+    return requireSession().then(function (s) {
+      if (s.rol !== "admin") throw new Error("No tenés permiso");
+      return sbFetch("/usuarios?select=usuario,rol,creado,ultimo_login&order=usuario.asc");
+    }).then(function (list) {
+      return { usuarios: list || [] };
+    });
+  }
+
   function gasCreateUser(usuario, password, rol) {
-    return gasCall({ action: "users_create", usuario: usuario, password: password, rol: rol });
+    return requireSession().then(function (s) {
+      if (s.rol !== "admin") throw new Error("No tenés permiso");
+      if (!usuario || !password || !rol)
+        throw new Error("Usuario, contraseña y rol requeridos");
+      usuario = String(usuario).trim();
+      if (usuario.length < 3) throw new Error("El usuario debe tener al menos 3 caracteres");
+      if (String(password).length < 4) throw new Error("La contraseña debe tener al menos 4 caracteres");
+      if (["admin", "restricted"].indexOf(rol) < 0) throw new Error("Rol inválido");
+      // Chequear que no exista
+      return sbFetch("/usuarios?usuario=eq." + encodeURIComponent(usuario) + "&select=usuario&limit=1")
+        .then(function (existing) {
+          if (existing && existing.length) throw new Error("Ya existe un usuario con ese nombre");
+          var salt = randomToken(16);
+          return sha256Hex(password + ":" + salt).then(function (hash) {
+            var row = {
+              usuario: usuario, password_hash: hash, salt: salt, rol: rol,
+              creado: new Date().toISOString()
+            };
+            return sbFetch("/usuarios", {
+              method: "POST",
+              headers: sbHeaders({ "Prefer": "return=minimal" }),
+              body: JSON.stringify(row)
+            });
+          });
+        }).then(function () { return { ok: true, usuario: usuario, rol: rol }; });
+    });
   }
+
   function gasDeleteUser(usuario) {
-    return gasCall({ action: "users_delete", usuario: usuario });
+    return requireSession().then(function (s) {
+      if (s.rol !== "admin") throw new Error("No tenés permiso");
+      if (String(usuario).toLowerCase() === String(s.usuario).toLowerCase())
+        throw new Error("No podés borrar tu propio usuario");
+      // Verificar que no sea el último admin
+      return sbFetch("/usuarios?select=usuario,rol")
+        .then(function (all) {
+          var target = (all || []).find(function (u) {
+            return u.usuario.toLowerCase() === String(usuario).toLowerCase();
+          });
+          if (!target) throw new Error("Ese usuario no existe");
+          var admins = (all || []).filter(function (u) { return u.rol === "admin"; });
+          if (target.rol === "admin" && admins.length <= 1)
+            throw new Error("No podés borrar al único admin");
+          // Borrar (el ON DELETE CASCADE borra las sesiones)
+          return sbFetch("/usuarios?usuario=eq." + encodeURIComponent(target.usuario),
+            { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) });
+        }).then(function () { return { ok: true }; });
+    });
   }
+
   function gasChangePassword(usuario, password) {
-    return gasCall({ action: "users_password", usuario: usuario, password: password });
+    return requireSession().then(function (s) {
+      if (s.rol !== "admin") throw new Error("No tenés permiso");
+      if (String(password).length < 4) throw new Error("La contraseña debe tener al menos 4 caracteres");
+      var salt = randomToken(16);
+      return sha256Hex(password + ":" + salt).then(function (hash) {
+        return sbFetch("/usuarios?usuario=eq." + encodeURIComponent(usuario), {
+          method: "PATCH",
+          headers: sbHeaders({ "Prefer": "return=minimal" }),
+          body: JSON.stringify({ password_hash: hash, salt: salt })
+        });
+      }).then(function () {
+        // Invalidar sesiones activas del usuario
+        return sbFetch("/sesiones?usuario=eq." + encodeURIComponent(usuario),
+          { method: "DELETE", headers: sbHeaders({ "Prefer": "return=minimal" }) })
+          .catch(function () {});
+      }).then(function () { return { ok: true }; });
+    });
   }
 
   /* ============================================================
@@ -1044,7 +1233,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
               new Date().toLocaleTimeString("es-AR",
                 { hour: "2-digit", minute: "2-digit" }), "ok");
           }).catch(function (err) {
-            // Si la sesión expiró, gasCall ya nos envió al login.
+            // Si la sesión expiró, gasCargarTodo ya nos envió al login.
             // No mostramos alerta adicional.
             if (err.isSessionError) {
               setSyncStatus("Sesión cerrada — volvé a ingresar", "error");
