@@ -1,37 +1,129 @@
 name: Keep Supabase Alive
 
-# Este workflow hace un ping a Supabase 3 veces por semana para evitar
-# que el proyecto free se pause por inactividad (7 días sin actividad
-# API dispara la pausa automática).
+# Pinguea Supabase todos los días para evitar la pausa por inactividad
+# del free tier (7 días sin actividad API).
 #
-# Corre: Lunes, Miércoles, Viernes a las 12:00 UTC (09:00 en Argentina).
-# También se puede correr manualmente desde la pestaña Actions del repo.
+# Mejoras respecto a la versión anterior:
+# - Corre diariamente (no 3x por semana) para máximo margen
+# - Reintenta con backoff si Supabase está arrancando (cold start)
+# - Hace una operación de ESCRITURA (upsert sobre keep_alive_ping),
+#   más robusta que solo leer
+# - Log detallado para diagnosticar fallas
+#
+# Corre: todos los días a las 12:00 UTC (09:00 Argentina).
+# También puede dispararse manualmente desde la pestaña Actions.
 
 on:
   schedule:
-    # cron format: minute hour day-of-month month day-of-week
-    # UTC. Argentina = UTC-3.
-    - cron: '0 12 * * 1,3,5'   # lunes, miércoles, viernes a las 12:00 UTC
-  workflow_dispatch:            # permite correrlo manualmente desde la web
+    - cron: '0 12 * * *'   # todos los días a las 12:00 UTC
+  workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping Supabase REST endpoint
+      - name: Validar que los secrets existan
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: |
-          echo "Pinging Supabase to keep the project active..."
-          RESPONSE=$(curl --silent --show-error --fail --write-out "\nHTTP_STATUS:%{http_code}" \
-            -H "apikey: ${SUPABASE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_KEY}" \
-            "${SUPABASE_URL}/rest/v1/periodos?select=key&limit=1")
-          echo "$RESPONSE"
-          STATUS=$(echo "$RESPONSE" | grep -oP 'HTTP_STATUS:\K[0-9]+')
-          if [ "$STATUS" != "200" ]; then
-            echo "::error::Supabase respondió con HTTP $STATUS (esperado: 200)"
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::error::Falta el secret SUPABASE_URL"
             exit 1
           fi
-          echo "✓ Supabase activo. Proyecto no se pausará esta semana."
+          if [ -z "$SUPABASE_KEY" ]; then
+            echo "::error::Falta el secret SUPABASE_KEY"
+            exit 1
+          fi
+          # Mostrar que las variables llegaron, sin exponer la clave
+          echo "URL configurada: ${SUPABASE_URL}"
+          echo "Clave empieza con: ${SUPABASE_KEY:0:20}..."
+          echo "Longitud de la clave: ${#SUPABASE_KEY}"
+
+      - name: Ping con reintentos (upsert en keep_alive_ping)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          # Payload para el upsert — una sola fila que se va pisando
+          PAYLOAD='{"id":1,"last_ping":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","source":"github-actions"}'
+          echo "Payload: $PAYLOAD"
+          echo ""
+
+          # Hasta 5 intentos con 30s de pausa (acomoda cold starts)
+          MAX_ATTEMPTS=5
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo "===== Intento $i de $MAX_ATTEMPTS ====="
+
+            # curl con timeout alto para cold starts
+            HTTP_CODE=$(curl --silent --output /tmp/response.txt \
+              --write-out "%{http_code}" \
+              --max-time 60 \
+              -X POST \
+              -H "apikey: ${SUPABASE_KEY}" \
+              -H "Authorization: Bearer ${SUPABASE_KEY}" \
+              -H "Content-Type: application/json" \
+              -H "Prefer: resolution=merge-duplicates,return=minimal" \
+              -d "$PAYLOAD" \
+              "${SUPABASE_URL}/rest/v1/keep_alive_ping?on_conflict=id" \
+              || echo "000")
+
+            echo "HTTP $HTTP_CODE"
+            if [ -s /tmp/response.txt ]; then
+              echo "Respuesta:"
+              cat /tmp/response.txt
+              echo ""
+            fi
+
+            # 200 / 201 / 204 = éxito
+            if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "201" ] || [ "$HTTP_CODE" = "204" ]; then
+              echo ""
+              echo "✓ Supabase respondió OK. Proyecto activo."
+              exit 0
+            fi
+
+            # 503 / 504 / 000 = probable cold start, reintentar
+            if [ "$HTTP_CODE" = "503" ] || [ "$HTTP_CODE" = "504" ] || [ "$HTTP_CODE" = "000" ]; then
+              if [ $i -lt $MAX_ATTEMPTS ]; then
+                echo "Posible cold start, esperando 30s antes de reintentar..."
+                sleep 30
+                continue
+              fi
+            fi
+
+            # 401 / 403 = credenciales mal
+            if [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "403" ]; then
+              echo "::error::Credenciales inválidas. Revisá los secrets SUPABASE_URL y SUPABASE_KEY."
+              exit 1
+            fi
+
+            # 404 = la tabla keep_alive_ping no existe, hay que crearla
+            if [ "$HTTP_CODE" = "404" ]; then
+              echo "::error::La tabla keep_alive_ping no existe en Supabase."
+              echo "::error::Correr el SQL de 'keep_alive_table.sql' que se entrega junto al workflow."
+              exit 1
+            fi
+
+            # Otros errores, reintentar hasta agotar
+            if [ $i -lt $MAX_ATTEMPTS ]; then
+              echo "Error no fatal (HTTP $HTTP_CODE), esperando 20s..."
+              sleep 20
+            fi
+          done
+
+          echo "::error::No se pudo pingear Supabase después de $MAX_ATTEMPTS intentos."
+          echo "::error::El proyecto puede estar pausado — restaurarlo manualmente desde Supabase Studio."
+          exit 1
+
+      - name: Verificar que efectivamente quedó registrada la actividad
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          echo "Leyendo el registro de ping para confirmar..."
+          curl --silent --fail \
+            -H "apikey: ${SUPABASE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_KEY}" \
+            "${SUPABASE_URL}/rest/v1/keep_alive_ping?id=eq.1&select=last_ping,source"
+          echo ""
+          echo "✓ Confirmado. Supabase registró el ping, debería mantenerse activo."
