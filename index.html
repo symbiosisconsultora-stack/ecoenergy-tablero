@@ -169,6 +169,24 @@ table { width: 100%; border-collapse: collapse; }
 .detail-row.nc-row td { color: #a8442f; }
 .detail-row.nc-row .num { font-weight: 600; }
 
+/* FACTURAS DESACTIVADAS — se muestran al pie, sin impacto en totales */
+.sub-h-desact { color: #8a7a6b; margin-top: 28px; }
+.sub-h-desact span { color: #b3ab98; }
+.table-desact { opacity: 0.85; }
+.rubro-desact { background: #efeadd; }
+.rubro-desact .cell-rubro { color: #6b6456; font-weight: 600; }
+.detail-desact td { color: #8a7a6b; text-decoration: line-through;
+  text-decoration-color: #c9c0ad; text-decoration-thickness: 1px; }
+.detail-desact .num { font-weight: 500; }
+.tag-desact {
+  display: inline-block; margin-left: 8px; padding: 1px 7px;
+  background: #e3dccb; color: #8a7a6b;
+  border-radius: 4px; font-size: 9.5px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  text-decoration: none;
+}
+.subtotal-desact td { color: #6b6456; font-style: italic; }
+
 .subtotal-row td {
   font-weight: 700; font-size: 13px; background: #ece7da;
   border-top: 1.5px solid #2a2620; border-bottom: none; padding: 9px 10px;
@@ -700,12 +718,16 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       var tipoComp = clean(r.DESC_CORTA);
       var esNC = tipoComp.toUpperCase() === "NC";
       var signo = esNC ? -1 : 1;
+      // DESACTIVADO: si la columna trae 1, la factura NO entra en ningún cálculo,
+      // se informa aparte como "Facturas desactivadas" en la pestaña Compras y Gastos.
+      var desactivada = Number(r.DESACTIVADO) === 1;
       out.push({
         desc: tipoComp,
         comprobante: clean(r.COMPROBANTE),
         proveedor: clean(r.PROVEEDOR),
         tipoComp: tipoComp,
         esNC: esNC,
+        desactivada: desactivada,
         neto: (Number(r.NETO) || 0) * signo,
         iva: ((Number(r.IVA21) || 0) + (Number(r.IVA10) || 0)) * signo,
         total: (Number(r.TOTAL) || 0) * signo,
@@ -818,9 +840,19 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   function computePeriodo(p) {
     var vr = buildVentasReport(p.ventas || []);
-    var cr = buildComprasReport(p.compras || []);
+    // Separar compras activas de desactivadas.
+    // Las desactivadas NO entran en ningún cálculo (estado resultados,
+    // gráficos, comparativo), solo se listan aparte en Compras y Gastos.
+    var comprasAll = p.compras || [];
+    var comprasActivas = [];
+    var comprasDesactivadas = [];
+    comprasAll.forEach(function (c) {
+      if (c.desactivada) comprasDesactivadas.push(c);
+      else comprasActivas.push(c);
+    });
+    var cr = buildComprasReport(comprasActivas);
     var er = buildEstado(vr, cr);
-    return { vr: vr, cr: cr, er: er };
+    return { vr: vr, cr: cr, er: er, desactivadas: comprasDesactivadas };
   }
 
   /* ============================================================
@@ -941,6 +973,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           return {
             periodo_key: key, descr: c.desc, comprobante: c.comprobante,
             proveedor: c.proveedor, tipo_comp: c.tipoComp, es_nc: !!c.esNC,
+            desactivada: !!c.desactivada,
             neto: c.neto, iva: c.iva, total: c.total, rubro: c.rubro
           };
         });
@@ -1002,6 +1035,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
           desc: c.descr || "", comprobante: c.comprobante || "",
           proveedor: c.proveedor || "", tipoComp: c.tipo_comp || "",
           esNC: !!c.es_nc,
+          desactivada: !!c.desactivada,
           neto: Number(c.neto) || 0, iva: Number(c.iva) || 0,
           total: Number(c.total) || 0, rubro: c.rubro
         });
@@ -1297,7 +1331,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
     if (state.tab === "estado") renderEstado(comp.er);
     else if (state.tab === "ventas") renderVentas(comp.vr);
-    else if (state.tab === "compras") renderCompras(comp.cr);
+    else if (state.tab === "compras") renderCompras(comp.cr, comp.desactivadas);
     else if (state.tab === "graficos") renderGraficos(comp);
     else if (state.tab === "comparativo") renderComparativo();
     else if (state.tab === "admin") renderAdmin();
@@ -1693,16 +1727,20 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     }
     return html;
   }
-  function renderCompras(cr) {
+  function renderCompras(cr, desactivadas) {
+    desactivadas = desactivadas || [];
     var especiales = cr.filter(function (r) {
       return r.categoria === "bienescambio" || r.categoria === "bienesuso";
     });
     var sueldos = cr.filter(function (r) { return r.categoria === "costoservicios"; });
     var gastos = cr.filter(function (r) { return r.categoria === "gasto"; });
 
+    var noteDesact = desactivadas.length
+      ? ' · ' + desactivadas.length + ' factura(s) desactivada(s) al pie, no se computan'
+      : '';
     var html = '<section class="panel"><div class="panel-head">' +
       '<h2>Compras y Gastos por Rubro</h2>' +
-      '<span class="panel-note">Tocá un rubro para ver los comprobantes.</span></div>';
+      '<span class="panel-note">Tocá un rubro para ver los comprobantes.' + noteDesact + '</span></div>';
 
     html += '<h3 class="sub-h">Bienes de Cambio y Bienes de Uso ' +
       '<span>— informados aparte</span></h3>';
@@ -1729,7 +1767,48 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       '<td class="num">' + money(n) + '</td>' +
       '<td class="num">' + money(iv) + '</td>' +
       '<td class="num">' + money(t) + '</td></tr>';
-    html += '</tbody></table></section>';
+    html += '</tbody></table>';
+
+    // Facturas desactivadas: listado aparte, NO suman en ningún total.
+    if (desactivadas.length) {
+      // Agrupar por rubro para que sea más legible
+      var porRubro = {};
+      desactivadas.forEach(function (c) {
+        (porRubro[c.rubro] = porRubro[c.rubro] || []).push(c);
+      });
+      var rubrosDesact = Object.keys(porRubro).sort();
+      var sumNeto = desactivadas.reduce(function (s, c) { return s + c.neto; }, 0);
+      var sumIva = desactivadas.reduce(function (s, c) { return s + c.iva; }, 0);
+      var sumTot = desactivadas.reduce(function (s, c) { return s + c.total; }, 0);
+
+      html += '<h3 class="sub-h sub-h-desact">Facturas desactivadas ' +
+        '<span>— informadas aparte, no computan en costos, gastos ni Estado de Resultados</span></h3>';
+      html += '<table class="data-table table-desact">' + compraTableHead() + '<tbody>';
+      rubrosDesact.forEach(function (rubro) {
+        var items = porRubro[rubro];
+        html += '<tr class="rubro-row rubro-desact"><td class="cell-rubro">' +
+          esc(rubro) + '</td>' +
+          '<td class="num">' + items.length + '</td>' +
+          '<td class="num"></td><td class="num"></td><td class="num"></td></tr>';
+        items.forEach(function (i) {
+          html += '<tr class="detail-row detail-desact">' +
+            '<td class="cell-detail">' + esc(i.proveedor || i.desc) +
+            '<span class="tag tag-desact">desactivada</span>' +
+            '<span class="muted"> · ' + esc(i.comprobante) + '</span></td>' +
+            '<td class="num">' + esc(i.tipoComp) + '</td>' +
+            '<td class="num">' + money(i.neto) + '</td>' +
+            '<td class="num">' + money(i.iva) + '</td>' +
+            '<td class="num">' + money(i.total) + '</td></tr>';
+        });
+      });
+      html += '<tr class="subtotal-row subtotal-desact"><td>Total desactivadas (informativo)</td><td></td>' +
+        '<td class="num">' + money(sumNeto) + '</td>' +
+        '<td class="num">' + money(sumIva) + '</td>' +
+        '<td class="num">' + money(sumTot) + '</td></tr>';
+      html += '</tbody></table>';
+    }
+
+    html += '</section>';
 
     document.getElementById("content").innerHTML = html;
     Array.prototype.forEach.call(
