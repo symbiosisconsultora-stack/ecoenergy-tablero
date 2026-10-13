@@ -459,6 +459,45 @@ table { width: 100%; border-collapse: collapse; }
 .tag-rol-admin { background: #d5e4cf; color: #436437; }
 .tag-rol-rest { background: #f3e4c4; color: #94701b; }
 
+/* SOLAPA SERVICIOS — selector de rango y tabla acumulada */
+.serv-filter {
+  display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap;
+  background: #f6f2e8; padding: 14px 16px; border-radius: 11px;
+  margin-bottom: 18px;
+}
+.serv-filter label {
+  display: flex; flex-direction: column; gap: 5px;
+  font-size: 10.5px; text-transform: uppercase; color: #9a9384;
+  font-weight: 600; letter-spacing: 0.04em; min-width: 170px;
+}
+.serv-filter select {
+  background: #fff; border: 1.5px solid #d8d2c2; border-radius: 7px;
+  padding: 8px 10px; font-size: 13px; font-family: inherit; color: #2a2620;
+}
+.serv-filter select:focus { outline: none; border-color: #3b7a57; }
+.serv-filter .btn-link { align-self: center; margin-top: 14px; }
+.serv-prompt {
+  padding: 24px 2px; font-size: 13px; font-style: italic;
+}
+.serv-table thead th { background: #ece7da; }
+.serv-row td {
+  padding: 12px 14px; font-size: 13px;
+}
+.serv-row td:first-child { font-weight: 600; color: #2a2620; }
+.serv-row.serv-cost td { color: #a8442f; }
+.serv-row.serv-result {
+  background: #faf7ee; border-top: 2px solid #e6e0d1;
+}
+.serv-row.serv-result td { font-size: 14px; font-weight: 700; }
+.serv-row.serv-result .neg { color: #a8442f; }
+.serv-table .num.strong { font-weight: 700; }
+.serv-margin {
+  margin-top: 14px; padding: 10px 14px;
+  background: #ece7da; border-radius: 7px;
+  font-size: 12.5px; color: #6b6456;
+}
+.serv-margin strong { color: #2a2620; }
+
 @media (max-width: 600px) {
   .num { font-size: 11.5px; }
   .data-table td, .er-table td { padding: 7px 6px; }
@@ -650,6 +689,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     tab: "estado",
     openV: {}, openC: {},
     openER: {},
+    // Filtro de la solapa Servicios (vacío al abrir por primera vez)
+    servFiltro: { desde: null, hasta: null },
     // Sesión
     session: null,   // {token, usuario, rol}
     booting: true    // mientras decide si mostrar login o tablero
@@ -1332,6 +1373,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     if (state.tab === "estado") renderEstado(comp.er);
     else if (state.tab === "ventas") renderVentas(comp.vr);
     else if (state.tab === "compras") renderCompras(comp.cr, comp.desactivadas);
+    else if (state.tab === "servicios") renderServicios();
     else if (state.tab === "graficos") renderGraficos(comp);
     else if (state.tab === "comparativo") renderComparativo();
     else if (state.tab === "admin") renderAdmin();
@@ -1423,10 +1465,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   function renderTabs(cantPeriodos) {
     var tabs;
     if (isRestricted()) {
-      // Modo restringido: solo las dos solapas que vos definiste
+      // Modo restringido: ventas, compras y la solapa Servicios
       tabs = [
         { id: "ventas", label: "Ventas por Rubro" },
-        { id: "compras", label: "Compras y Gastos" }
+        { id: "compras", label: "Compras y Gastos" },
+        { id: "servicios", label: "Servicios" }
       ];
     } else {
       // Admin: todo
@@ -1434,6 +1477,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         { id: "estado", label: "Estado de Resultados" },
         { id: "ventas", label: "Ventas por Rubro" },
         { id: "compras", label: "Compras y Gastos" },
+        { id: "servicios", label: "Servicios" },
         { id: "graficos", label: "Gráficos" }
       ];
       if (cantPeriodos >= 2) tabs.push({ id: "comparativo", label: "Comparativo" });
@@ -1892,6 +1936,160 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         color + '"></span>' + esc(d.label) +
         '<span class="leg-val">' + esc(d.display) + '</span></div>';
     }).join("") + '</div>';
+  }
+
+  /* ---- SERVICIOS: acumulado por rango de meses ---- */
+  function renderServicios() {
+    var keys = Object.keys(state.periodos)
+      .filter(function (k) {
+        var p = state.periodos[k];
+        return p.ventas && p.compras;   // solo períodos completos
+      })
+      .sort();
+
+    var html = '<section class="panel"><div class="panel-head">' +
+      '<h2>Servicios · Acumulado por rango</h2>' +
+      '<span class="panel-note">Elegí el rango de meses para ver ventas, costos y resultado bruto de servicios.</span>' +
+      '</div>';
+
+    if (!keys.length) {
+      html += '<div class="muted" style="padding:20px 2px;">No hay períodos cargados todavía.</div>';
+      html += '</section>';
+      document.getElementById("content").innerHTML = html;
+      return;
+    }
+
+    // Opciones del selector
+    var opciones = keys.map(function (k) {
+      return '<option value="' + esc(k) + '">' + esc(periodoLabel(k)) + '</option>';
+    }).join("");
+
+    var desde = state.servFiltro.desde;
+    var hasta = state.servFiltro.hasta;
+
+    html += '<div class="serv-filter">' +
+      '<label>Desde' +
+      '<select id="servDesde"><option value="">— elegir —</option>' + opciones + '</select>' +
+      '</label>' +
+      '<label>Hasta' +
+      '<select id="servHasta"><option value="">— elegir —</option>' + opciones + '</select>' +
+      '</label>' +
+      '<button id="servLimpiar" class="btn-link">Limpiar</button>' +
+      '</div>';
+
+    // Si no hay rango elegido, no mostrar tabla
+    if (!desde || !hasta) {
+      html += '<div class="muted serv-prompt">Seleccioná un mes "Desde" y uno "Hasta" para ver el acumulado.</div>';
+      html += '</section>';
+      document.getElementById("content").innerHTML = html;
+      wireServFilter(keys);
+      return;
+    }
+
+    // Validar que desde <= hasta
+    if (desde > hasta) { var tmp = desde; desde = hasta; hasta = tmp; }
+
+    // Filtrar los meses en el rango
+    var mesesRango = keys.filter(function (k) { return k >= desde && k <= hasta; });
+    if (!mesesRango.length) {
+      html += '<div class="muted serv-prompt">No hay meses cargados en el rango seleccionado.</div>';
+      html += '</section>';
+      document.getElementById("content").innerHTML = html;
+      wireServFilter(keys);
+      return;
+    }
+
+    // Calcular ventas, costos y resultado por cada mes del rango
+    var filas = {
+      ventas: {}, costos: {}, resultado: {}
+    };
+    var totVentas = 0, totCostos = 0;
+
+    mesesRango.forEach(function (k) {
+      var p = state.periodos[k];
+      var comp = computePeriodo(p);
+      // ventas de servicios: lo que ya existe como categoría "servicios" en vr
+      var ventasServ = comp.vr
+        .filter(function (r) { return r.categoria === "servicios"; })
+        .reduce(function (s, r) { return s + (r.ventaBruta || 0); }, 0);
+      // costos de servicios: ya calculado en er
+      var costoServ = comp.er.costoServicios || 0;
+      filas.ventas[k] = ventasServ;
+      filas.costos[k] = costoServ;
+      filas.resultado[k] = ventasServ - costoServ;
+      totVentas += ventasServ;
+      totCostos += costoServ;
+    });
+    var totResultado = totVentas - totCostos;
+
+    // Armar tabla
+    html += '<div class="table-scroll">';
+    html += '<table class="data-table serv-table"><thead><tr>' +
+      '<th>Concepto</th>';
+    mesesRango.forEach(function (k) {
+      html += '<th class="num">' + esc(periodoCorto(k)) + '</th>';
+    });
+    html += '<th class="num strong">Total</th>';
+    html += '</tr></thead><tbody>';
+
+    // Fila ventas
+    html += '<tr class="serv-row"><td>Ventas de Servicios</td>';
+    mesesRango.forEach(function (k) {
+      html += '<td class="num">' + money(filas.ventas[k]) + '</td>';
+    });
+    html += '<td class="num strong">' + money(totVentas) + '</td></tr>';
+
+    // Fila costos
+    html += '<tr class="serv-row serv-cost"><td>(–) Costo de Servicios</td>';
+    mesesRango.forEach(function (k) {
+      html += '<td class="num">(' + money(filas.costos[k]) + ')</td>';
+    });
+    html += '<td class="num strong">(' + money(totCostos) + ')</td></tr>';
+
+    // Fila resultado
+    html += '<tr class="serv-row serv-result"><td>Resultado Bruto</td>';
+    mesesRango.forEach(function (k) {
+      var v = filas.resultado[k];
+      var cls = v >= 0 ? "num strong" : "num strong neg";
+      html += '<td class="' + cls + '">' + money(v) + '</td>';
+    });
+    var cls = totResultado >= 0 ? "num strong" : "num strong neg";
+    html += '<td class="' + cls + '">' + money(totResultado) + '</td></tr>';
+
+    html += '</tbody></table></div>';
+
+    // Nota contextual
+    var margen = totVentas ? (totResultado / totVentas) : null;
+    html += '<div class="serv-margin">' +
+      'Margen bruto del rango: <strong>' +
+      (margen != null ? (margen * 100).toFixed(1) + "%" : "—") +
+      '</strong>' +
+      ' · Costo de Servicios = Sueldos Operativos + Vehículos + Servicios de Terceros' +
+      '</div>';
+
+    html += '</section>';
+    document.getElementById("content").innerHTML = html;
+    wireServFilter(keys);
+  }
+
+  function wireServFilter(keys) {
+    var selDesde = document.getElementById("servDesde");
+    var selHasta = document.getElementById("servHasta");
+    if (state.servFiltro.desde) selDesde.value = state.servFiltro.desde;
+    if (state.servFiltro.hasta) selHasta.value = state.servFiltro.hasta;
+    selDesde.onchange = function () {
+      state.servFiltro.desde = this.value || null;
+      render();
+    };
+    selHasta.onchange = function () {
+      state.servFiltro.hasta = this.value || null;
+      render();
+    };
+    document.getElementById("servLimpiar").onclick = function () {
+      state.servFiltro.desde = null;
+      state.servFiltro.hasta = null;
+      render();
+    };
   }
 
   function renderGraficos(comp) {
